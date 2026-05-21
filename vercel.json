@@ -1,6 +1,13 @@
 {
   "version": 2,
-  "rewrites": [
-    { "source": "/api/parse", "destination": "/api/parse.js" }
+  "builds": [
+    { "src": "index.html", "use": "@vercel/static" },
+    { "src": "styles.css", "use": "@vercel/static" },
+    { "src": "api/parse.js", "use": "@vercel/node" }
+  ],
+  "routes": [
+    { "src": "/styles.css",  "dest": "/styles.css" },
+    { "src": "/api/parse",   "dest": "/api/parse.js" },
+    { "src": "/(.*)",        "dest": "/index.html" }
   ]
 }
