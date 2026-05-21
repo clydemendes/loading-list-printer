@@ -12,7 +12,7 @@
   <div class="app">
     <header>
       <h1>Loading List Printer</h1>
-      <p>Upload your loading list PDF — Claude AI reads it and generates one print card per stop</p>
+      <p>Upload your loading list PDF and get a print-ready card generated for each stop</p>
     </header>
 
     <div class="drop-zone" id="dropZone">
@@ -24,6 +24,10 @@
     </div>
 
     <div class="status" id="status"></div>
+
+    <div class="loader-wrap" id="loaderWrap" hidden>
+      <div class="loader-bar" id="loaderBar"></div>
+    </div>
 
     <div class="stop-list" id="stopList"></div>
 
@@ -39,14 +43,16 @@
     pdfjsLib.GlobalWorkerOptions.workerSrc =
       'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-    const dropZone  = document.getElementById('dropZone');
-    const fileInput = document.getElementById('fileInput');
-    const status    = document.getElementById('status');
-    const stopList  = document.getElementById('stopList');
-    const actions   = document.getElementById('actions');
-    const printBtn  = document.getElementById('printBtn');
-    const debugBtn  = document.getElementById('debugBtn');
-    const debugBox  = document.getElementById('debugBox');
+    const dropZone   = document.getElementById('dropZone');
+    const fileInput  = document.getElementById('fileInput');
+    const status     = document.getElementById('status');
+    const loaderWrap = document.getElementById('loaderWrap');
+    const loaderBar  = document.getElementById('loaderBar');
+    const stopList   = document.getElementById('stopList');
+    const actions    = document.getElementById('actions');
+    const printBtn   = document.getElementById('printBtn');
+    const debugBtn   = document.getElementById('debugBtn');
+    const debugBox   = document.getElementById('debugBox');
 
     let parsedStops = [];
     let rawText     = '';
@@ -67,12 +73,13 @@
 
     // ── Main flow ─────────────────────────────────────────────────────────────
     async function handleFile(file) {
-      setStatus('Reading PDF…', 'info');
+      setStatus('', '');
       stopList.innerHTML = '';
       debugBox.hidden    = true;
       actions.hidden     = true;
       parsedStops = [];
       rawText     = '';
+      showLoader();
 
       try {
         // 1. Extract text from PDF in the browser
@@ -94,7 +101,6 @@
         }
 
         // 2. Send text to local server → Claude Haiku extracts stop data
-        setStatus('Claude AI is reading the loading list…', 'info');
         const res = await fetch('/api/parse', {
           method:  'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -108,6 +114,7 @@
 
         const { stops } = await res.json();
         parsedStops = stops;
+        hideLoader();
 
         if (!parsedStops.length) {
           setStatus('Claude found no stops in this PDF. Use "Show Raw PDF Text" to verify the content.', 'error');
@@ -120,6 +127,7 @@
         actions.hidden = false;
 
       } catch (err) {
+        hideLoader();
         setStatus('Error: ' + err.message, 'error');
         actions.hidden = false;
       }
@@ -144,6 +152,20 @@
     function setStatus(msg, type) {
       status.textContent = msg;
       status.className   = 'status ' + type;
+    }
+
+    function showLoader() {
+      loaderWrap.hidden = false;
+      loaderBar.style.width = '0%';
+      // Animate to 85% quickly, then crawl — snaps to 100% on hideLoader
+      setTimeout(() => loaderBar.style.width = '40%', 50);
+      setTimeout(() => loaderBar.style.width = '70%', 800);
+      setTimeout(() => loaderBar.style.width = '85%', 2000);
+    }
+
+    function hideLoader() {
+      loaderBar.style.width = '100%';
+      setTimeout(() => { loaderWrap.hidden = true; loaderBar.style.width = '0%'; }, 400);
     }
 
     // ── Debug toggle ──────────────────────────────────────────────────────────

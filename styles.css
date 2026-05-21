@@ -79,6 +79,23 @@ header p {
 
 .file-btn:hover { background: #3451d1; }
 
+/* Loading bar */
+.loader-wrap {
+  margin-top: 20px;
+  height: 6px;
+  background: #e2e5ec;
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.loader-bar {
+  height: 100%;
+  width: 0%;
+  background: #4361ee;
+  border-radius: 99px;
+  transition: width 0.6s ease;
+}
+
 /* Status bar */
 .status {
   margin-top: 20px;
