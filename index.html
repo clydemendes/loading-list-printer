@@ -100,11 +100,18 @@
             .join('\n') + '\n';
         }
 
-        // 2. Send text to local server → Claude Haiku extracts stop data
+        // 2. Compress text — strip blank lines & extra spaces before sending
+        const compressed = rawText
+          .split('\n')
+          .map(l => l.replace(/\s+/g, ' ').trim())
+          .filter(l => l.length > 0)
+          .join('\n')
+          .slice(0, 6000); // loading lists are never this long; hard cap protects against huge files
+
         const res = await fetch('/api/parse', {
           method:  'POST',
           headers: { 'Content-Type': 'application/json' },
-          body:    JSON.stringify({ text: rawText })
+          body:    JSON.stringify({ text: compressed })
         });
 
         if (!res.ok) {

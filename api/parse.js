@@ -14,19 +14,9 @@ module.exports = async (req, res) => {
       max_tokens: 2048,
       messages: [{
         role: 'user',
-        content: `You are a data extraction assistant. Extract data from the loading list below.
+        content: `Extract data from this loading list. Reply with ONLY a JSON object, no markdown.
 
-Return ONLY a valid JSON object — no explanation, no markdown, no code fences — with exactly these two fields:
-
-1. "loadId": the last 6 digits of the Load ID field found in the document (e.g. if Load ID is "LD-789123", return "789123"). Empty string if not found.
-
-2. "stops": an array of objects, one per delivery stop, each with exactly these fields:
-   - "stopNr"  : stop number as a string (e.g. "1")
-   - "detail"  : stop position tag like TAIL, NOSE, B/S — empty string if absent
-   - "company" : the Deliver To company name
-   - "city"    : city name
-   - "state"   : 2-letter state abbreviation
-   - "order"   : full order number including any letter prefix (e.g. "S0000045445") — empty string if not found
+Schema: {"loadId":"last 6 digits of Load ID or empty","stops":[{"stopNr":"1","detail":"TAIL or empty","company":"","city":"","state":"CA","order":"S0000045445 or empty"}]}
 
 Loading list:
 ${text}`
