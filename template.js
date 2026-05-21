@@ -48,7 +48,7 @@ function generatePrintHTML(stops) {
   }
 
   .stop-header {
-    font-size: 14pt;
+    font-size: 46pt;
     font-weight: 900;
     text-transform: uppercase;
     letter-spacing: 3px;
