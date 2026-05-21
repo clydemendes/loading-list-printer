@@ -193,6 +193,16 @@ header p {
   background: #f0f2f5;
 }
 
+/* Footer */
+footer {
+  margin-top: 48px;
+  padding-top: 20px;
+  border-top: 1px solid #e2e5ec;
+  text-align: center;
+  font-size: 0.8rem;
+  color: #999;
+}
+
 /* Debug raw text box */
 .debug-box {
   margin-top: 24px;
