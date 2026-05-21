@@ -15,6 +15,7 @@ function generatePrintHTML(stops) {
       : `STOP #${s.stopNr}`;
     return `
     <div class="stop-card">
+      ${s.loadId ? `<div class="load-id">${s.loadId}</div>` : ''}
       <div class="stop-header">${header}</div>
       <div class="company" style="font-size:${companyFontSize(s.company)}">${s.company}</div>
       ${location ? `<div class="location">${location}</div>` : ''}
@@ -45,6 +46,17 @@ function generatePrintHTML(stops) {
     font-family: 'Arial Black', Arial, sans-serif;
     color: #000;
     overflow: hidden;
+    position: relative;
+  }
+
+  .load-id {
+    position: absolute;
+    top: 0.25in;
+    right: 0.5in;
+    font-size: 19pt;
+    font-weight: 700;
+    color: #000;
+    letter-spacing: 1px;
   }
 
   .stop-header {

@@ -19,15 +19,19 @@ app.post('/api/parse', async (req, res) => {
       max_tokens: 2048,
       messages: [{
         role: 'user',
-        content: `You are a data extraction assistant. Extract every delivery stop from the loading list below.
+        content: `You are a data extraction assistant. Extract data from the loading list below.
 
-Return ONLY a valid JSON array — no explanation, no markdown, no code fences. Each object must have exactly these fields:
-- "stopNr"  : stop number as a string (e.g. "1")
-- "detail"  : stop position tag like TAIL, NOSE, B/S — empty string if absent
-- "company" : the Deliver To company name
-- "city"    : city name
-- "state"   : 2-letter state abbreviation
-- "order"   : full order number including any letter prefix (e.g. "S0000045445") — empty string if not found
+Return ONLY a valid JSON object — no explanation, no markdown, no code fences — with exactly these two fields:
+
+1. "loadId": the last 6 digits of the Load ID field found in the document (e.g. if Load ID is "LD-789123", return "789123"). Empty string if not found.
+
+2. "stops": an array of objects, one per delivery stop, each with exactly these fields:
+   - "stopNr"  : stop number as a string (e.g. "1")
+   - "detail"  : stop position tag like TAIL, NOSE, B/S — empty string if absent
+   - "company" : the Deliver To company name
+   - "city"    : city name
+   - "state"   : 2-letter state abbreviation
+   - "order"   : full order number including any letter prefix (e.g. "S0000045445") — empty string if not found
 
 Loading list:
 ${text}`
@@ -35,10 +39,15 @@ ${text}`
     });
 
     let raw = message.content[0].text.trim();
-    // Strip markdown code fences if the model adds them despite instructions
     raw = raw.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');
 
-    const stops = JSON.parse(raw);
+    const { loadId, stops } = JSON.parse(raw);
+
+    // Attach loadId only to stop #1
+    if (stops.length > 0) {
+      stops[0].loadId = loadId || '';
+    }
+
     res.json({ stops });
   } catch (err) {
     console.error('Parse error:', err.message);

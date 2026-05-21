@@ -184,6 +184,7 @@
           : `STOP #${s.stopNr}`;
         return `
         <div class="stop-card">
+          ${s.loadId ? `<div class="load-id">${s.loadId}</div>` : ''}
           <div class="stop-header">${header}</div>
           <div class="company" style="font-size:${companyFontSize(s.company)}">${s.company}</div>
           ${location ? `<div class="location">${location}</div>` : ''}
@@ -213,6 +214,16 @@
     font-family: 'Arial Black', Arial, sans-serif;
     color: #000;
     overflow: hidden;
+    position: relative;
+  }
+  .load-id {
+    position: absolute;
+    top: 0.25in;
+    right: 0.5in;
+    font-size: 19pt;
+    font-weight: 700;
+    color: #000;
+    letter-spacing: 1px;
   }
   .stop-header  { font-size: 46pt; font-weight: 900; text-transform: uppercase; letter-spacing: 3px; color: #000; margin-bottom: 0.15in; }
   .detail-tag   { color: #444; }
