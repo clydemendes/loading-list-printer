@@ -11,7 +11,10 @@
 
   <div class="app">
     <header>
-      <h1>Stop Card Printer</h1>
+      <div class="header-top">
+        <h1>Stop Card Printer</h1>
+        <button id="themeBtn" class="theme-btn" aria-label="Toggle dark mode">🌙</button>
+      </div>
       <p>Upload your loading list PDF and get a print-ready card generated for each stop</p>
     </header>
 
@@ -57,6 +60,21 @@
     const printBtn   = document.getElementById('printBtn');
     const debugBtn   = document.getElementById('debugBtn');
     const debugBox   = document.getElementById('debugBox');
+    const themeBtn   = document.getElementById('themeBtn');
+
+    // ── Theme ─────────────────────────────────────────────────────────────────
+    (function initTheme() {
+      if (localStorage.getItem('theme') === 'dark') {
+        document.body.classList.add('dark');
+        themeBtn.textContent = '☀️';
+      }
+    })();
+
+    themeBtn.addEventListener('click', () => {
+      const isDark = document.body.classList.toggle('dark');
+      themeBtn.textContent = isDark ? '☀️' : '🌙';
+      localStorage.setItem('theme', isDark ? 'dark' : 'light');
+    });
 
     let parsedStops = [];
     let rawText     = '';

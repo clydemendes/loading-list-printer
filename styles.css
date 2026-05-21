@@ -14,8 +14,14 @@ body {
 }
 
 header {
-  text-align: center;
   margin-bottom: 32px;
+}
+
+.header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
 }
 
 header h1 {
@@ -25,9 +31,28 @@ header h1 {
 }
 
 header p {
-  margin-top: 6px;
   color: #666;
   font-size: 1rem;
+}
+
+.theme-btn {
+  background: none;
+  border: 2px solid #c0c7d4;
+  border-radius: 50%;
+  width: 42px;
+  height: 42px;
+  font-size: 1.1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.2s, background 0.2s;
+  flex-shrink: 0;
+}
+
+.theme-btn:hover {
+  border-color: #4361ee;
+  background: #eef0ff;
 }
 
 /* Drop zone */
@@ -217,4 +242,64 @@ footer {
   white-space: pre-wrap;
   max-height: 400px;
   overflow-y: auto;
+}
+
+/* ── Dark mode ───────────────────────────────────────────────────────────── */
+body.dark {
+  background: #1E2019;
+  color: #e8e8dc;
+}
+
+body.dark header h1       { color: #f0f0e8; }
+body.dark header p        { color: #8a8a80; }
+
+body.dark .theme-btn {
+  border-color: rgba(255,255,255,0.2);
+  color: #f0f0e8;
+}
+body.dark .theme-btn:hover {
+  border-color: #4361ee;
+  background: rgba(67,97,238,0.15);
+}
+
+body.dark .drop-zone {
+  background: #272820;
+  border-color: rgba(255,255,255,0.12);
+}
+body.dark .drop-zone.drag-over {
+  border-color: #4361ee;
+  background: rgba(67,97,238,0.1);
+}
+body.dark .drop-zone p    { color: #e0e0d8; }
+body.dark .drop-zone span { color: #5a5a52; }
+
+body.dark .loader-wrap    { background: #333328; }
+
+body.dark .status.info    { background: #162030; color: #6aaed4; }
+body.dark .status.success { background: #162818; color: #6ad4a0; }
+body.dark .status.error   { background: #2a1414; color: #d47070; }
+
+body.dark .stop-row {
+  background: #272820;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+}
+body.dark .company-name   { color: #f0f0e8; }
+body.dark .location       { color: #8a8a80; }
+
+body.dark .actions button {
+  background: #f0f0e8;
+  color: #1E2019;
+}
+body.dark .actions button:hover { background: #d8d8d0; }
+
+body.dark .actions button.secondary {
+  background: transparent;
+  color: #8a8a80;
+  border-color: rgba(255,255,255,0.15);
+}
+body.dark .actions button.secondary:hover { background: #272820; }
+
+body.dark footer {
+  color: #5a5a52;
+  border-top-color: rgba(255,255,255,0.08);
 }
