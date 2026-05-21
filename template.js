@@ -7,13 +7,16 @@ function companyFontSize(name) {
   return '24pt';
 }
 
+const COPIES = 4;
+
 function generatePrintHTML(stops) {
-  const cards = stops.map(s => {
+  // Reverse so last stop prints first, repeat each stop COPIES times (uncollated)
+  const cards = [...stops].reverse().flatMap(s => {
     const location = [s.city, s.state].filter(Boolean).join(', ');
     const header   = s.detail
       ? `STOP #${s.stopNr} <span class="detail-tag">(${s.detail})</span>`
       : `STOP #${s.stopNr}`;
-    return `
+    const card = `
     <div class="stop-card">
       ${s.loadId ? `<div class="load-id">${s.loadId}</div>` : ''}
       <div class="stop-header">${header}</div>
@@ -23,6 +26,7 @@ function generatePrintHTML(stops) {
       <div class="order-label">Order Number</div>
       ${s.order ? `<div class="order-number">${s.order}</div>` : '<div class="order-number no-order">—</div>'}
     </div>`;
+    return Array(COPIES).fill(card);
   }).join('');
 
   return `<!DOCTYPE html>
