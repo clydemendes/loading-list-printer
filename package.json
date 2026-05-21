@@ -1,0 +1,16 @@
+{
+  "name": "loading-list-printer",
+  "version": "1.0.0",
+  "description": "Parse a loading list PDF with Claude AI and generate print-ready stop cards",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "cli": "node main.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "pdf-parse": "^1.1.1"
+  }
+}

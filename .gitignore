@@ -1,0 +1,4 @@
+.env
+node_modules/
+print_stops.html
+.DS_Store

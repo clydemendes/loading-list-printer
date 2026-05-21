@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Loading List Printer</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+</head>
+<body>
+
+  <div class="app">
+    <header>
+      <h1>Loading List Printer</h1>
+      <p>Upload your loading list PDF — Claude AI reads it and generates one print card per stop</p>
+    </header>
+
+    <div class="drop-zone" id="dropZone">
+      <div class="drop-icon">📄</div>
+      <p>Drag &amp; drop your PDF here</p>
+      <span>or</span>
+      <label class="file-btn" for="fileInput">Choose File</label>
+      <input type="file" id="fileInput" accept=".pdf" hidden>
+    </div>
+
+    <div class="status" id="status"></div>
+
+    <div class="stop-list" id="stopList"></div>
+
+    <div class="actions" id="actions" hidden>
+      <button id="printBtn">Print Stop Cards</button>
+      <button id="debugBtn" class="secondary">Show Raw PDF Text</button>
+    </div>
+
+    <pre class="debug-box" id="debugBox" hidden></pre>
+  </div>
+
+  <script>
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+    const dropZone  = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
+    const status    = document.getElementById('status');
+    const stopList  = document.getElementById('stopList');
+    const actions   = document.getElementById('actions');
+    const printBtn  = document.getElementById('printBtn');
+    const debugBtn  = document.getElementById('debugBtn');
+    const debugBox  = document.getElementById('debugBox');
+
+    let parsedStops = [];
+    let rawText     = '';
+
+    // ── Drag & drop ───────────────────────────────────────────────────────────
+    dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+    dropZone.addEventListener('drop', e => {
+      e.preventDefault();
+      dropZone.classList.remove('drag-over');
+      const file = e.dataTransfer.files[0];
+      if (file?.type === 'application/pdf') handleFile(file);
+      else setStatus('Please drop a PDF file.', 'error');
+    });
+    fileInput.addEventListener('change', () => {
+      if (fileInput.files[0]) handleFile(fileInput.files[0]);
+    });
+
+    // ── Main flow ─────────────────────────────────────────────────────────────
+    async function handleFile(file) {
+      setStatus('Reading PDF…', 'info');
+      stopList.innerHTML = '';
+      debugBox.hidden    = true;
+      actions.hidden     = true;
+      parsedStops = [];
+      rawText     = '';
+
+      try {
+        // 1. Extract text from PDF in the browser
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page    = await pdf.getPage(i);
+          const content = await page.getTextContent();
+          const lines   = {};
+          content.items.forEach(item => {
+            const y = Math.round(item.transform[5]);
+            lines[y] = (lines[y] || '') + item.str + ' ';
+          });
+          rawText += Object.keys(lines)
+            .sort((a, b) => b - a)
+            .map(y => lines[y].trim())
+            .join('\n') + '\n';
+        }
+
+        // 2. Send text to local server → Claude Haiku extracts stop data
+        setStatus('Claude AI is reading the loading list…', 'info');
+        const res = await fetch('/api/parse', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ text: rawText })
+        });
+
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ error: res.statusText }));
+          throw new Error(err.error || 'Server error');
+        }
+
+        const { stops } = await res.json();
+        parsedStops = stops;
+
+        if (!parsedStops.length) {
+          setStatus('Claude found no stops in this PDF. Use "Show Raw PDF Text" to verify the content.', 'error');
+          actions.hidden = false;
+          return;
+        }
+
+        setStatus(`Found ${parsedStops.length} stop${parsedStops.length !== 1 ? 's' : ''} — review below then click Print`, 'success');
+        renderStops(parsedStops);
+        actions.hidden = false;
+
+      } catch (err) {
+        setStatus('Error: ' + err.message, 'error');
+        actions.hidden = false;
+      }
+    }
+
+    // ── Preview list ──────────────────────────────────────────────────────────
+    function renderStops(stops) {
+      stopList.innerHTML = stops.map(s => {
+        const location = [s.city, s.state].filter(Boolean).join(', ');
+        const tag      = s.detail ? `#${s.stopNr} (${s.detail})` : `#${s.stopNr}`;
+        return `
+        <div class="stop-row">
+          <span class="tag">${tag}</span>
+          <span class="company-name">${s.company}</span>
+          <span class="location">${location}</span>
+          <span class="order-num">${s.order}</span>
+        </div>`;
+      }).join('');
+    }
+
+    // ── Status ────────────────────────────────────────────────────────────────
+    function setStatus(msg, type) {
+      status.textContent = msg;
+      status.className   = 'status ' + type;
+    }
+
+    // ── Debug toggle ──────────────────────────────────────────────────────────
+    debugBtn.addEventListener('click', () => {
+      if (debugBox.hidden) {
+        debugBox.textContent = rawText || '(no text extracted yet)';
+        debugBox.hidden      = false;
+        debugBtn.textContent = 'Hide Raw PDF Text';
+      } else {
+        debugBox.hidden      = true;
+        debugBtn.textContent = 'Show Raw PDF Text';
+      }
+    });
+
+    // ── Print ─────────────────────────────────────────────────────────────────
+    printBtn.addEventListener('click', () => {
+      const win = window.open('', '_blank');
+      win.document.write(generatePrintHTML(parsedStops));
+      win.document.close();
+      win.focus();
+      setTimeout(() => win.print(), 500);
+    });
+
+    function companyFontSize(name) {
+      const len = name.length;
+      if (len <= 15) return '56pt';
+      if (len <= 22) return '46pt';
+      if (len <= 30) return '38pt';
+      if (len <= 40) return '30pt';
+      return '24pt';
+    }
+
+    function generatePrintHTML(stops) {
+      const cards = stops.map(s => {
+        const location = [s.city, s.state].filter(Boolean).join(', ');
+        const header   = s.detail
+          ? `STOP #${s.stopNr} <span class="detail-tag">(${s.detail})</span>`
+          : `STOP #${s.stopNr}`;
+        return `
+        <div class="stop-card">
+          <div class="stop-header">${header}</div>
+          <div class="company" style="font-size:${companyFontSize(s.company)}">${s.company}</div>
+          ${location ? `<div class="location">${location}</div>` : ''}
+          <hr class="divider">
+          <div class="order-label">Order Number</div>
+          ${s.order ? `<div class="order-number">${s.order}</div>` : '<div class="order-number no-order">—</div>'}
+        </div>`;
+      }).join('');
+
+      return `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+  @page { size: letter landscape; margin: 0.35in; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { background: #fff; }
+  .stop-card {
+    background: #fff;
+    height: 7.8in;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 0.25in 0.5in;
+    page-break-after: always;
+    break-after: page;
+    font-family: 'Arial Black', Arial, sans-serif;
+    color: #000;
+    overflow: hidden;
+  }
+  .stop-header  { font-size: 14pt; font-weight: 900; text-transform: uppercase; letter-spacing: 3px; color: #000; margin-bottom: 0.15in; }
+  .detail-tag   { color: #444; }
+  .company      { font-size: 56pt; font-weight: 900; line-height: 1.0; color: #000; margin-bottom: 0.08in; }
+  .location     { font-size: 30pt; font-weight: 700; color: #000; margin-bottom: 0.2in; }
+  .divider      { border: none; border-top: 2px solid #000; margin-bottom: 0.15in; }
+  .order-label  { font-size: 10pt; font-weight: 700; text-transform: uppercase; letter-spacing: 3px; color: #000; margin-bottom: 0.06in; }
+  .order-number { font-size: 46pt; font-weight: 900; color: #000; letter-spacing: 2px; }
+  .order-number.no-order { color: #999; }
+</style>
+</head>
+<body>${cards}</body>
+</html>`;
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,193 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: #f0f2f5;
+  min-height: 100vh;
+  padding: 40px 20px;
+  color: #1a1a2e;
+}
+
+.app {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+header {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+header h1 {
+  font-size: 2rem;
+  font-weight: 800;
+  color: #1a1a2e;
+}
+
+header p {
+  margin-top: 6px;
+  color: #666;
+  font-size: 1rem;
+}
+
+/* Drop zone */
+.drop-zone {
+  background: #fff;
+  border: 2.5px dashed #c0c7d4;
+  border-radius: 16px;
+  padding: 56px 32px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.drop-zone.drag-over {
+  border-color: #4361ee;
+  background: #eef0ff;
+}
+
+.drop-icon {
+  font-size: 3rem;
+  margin-bottom: 12px;
+}
+
+.drop-zone p {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 8px;
+}
+
+.drop-zone span {
+  display: block;
+  color: #999;
+  margin-bottom: 12px;
+  font-size: 0.9rem;
+}
+
+.file-btn {
+  display: inline-block;
+  background: #4361ee;
+  color: #fff;
+  padding: 10px 24px;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.file-btn:hover { background: #3451d1; }
+
+/* Status bar */
+.status {
+  margin-top: 20px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  min-height: 0;
+  transition: all 0.2s;
+}
+
+.status:empty { display: none; }
+.status.info    { background: #e8f4fd; color: #1a6fad; }
+.status.success { background: #e6f9f0; color: #1a7a4a; }
+.status.error   { background: #fdecea; color: #b71c1c; }
+
+/* Stop list */
+.stop-list {
+  margin-top: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.stop-row {
+  background: #fff;
+  border-radius: 10px;
+  padding: 14px 20px;
+  display: grid;
+  grid-template-columns: 52px 1fr auto auto;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+}
+
+.tag {
+  background: #4361ee;
+  color: #fff;
+  font-weight: 800;
+  font-size: 0.85rem;
+  padding: 4px 8px;
+  border-radius: 6px;
+  text-align: center;
+}
+
+.company-name {
+  font-weight: 700;
+  font-size: 1rem;
+  color: #1a1a2e;
+}
+
+.location {
+  font-size: 0.9rem;
+  color: #555;
+}
+
+.order-num {
+  font-family: 'Courier New', monospace;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #4361ee;
+  white-space: nowrap;
+}
+
+/* Actions row */
+.actions {
+  margin-top: 28px;
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.actions button {
+  background: #1a1a2e;
+  color: #fff;
+  border: none;
+  padding: 14px 40px;
+  font-size: 1rem;
+  font-weight: 700;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.actions button:hover { background: #2d2d50; }
+
+.actions button.secondary {
+  background: #fff;
+  color: #1a1a2e;
+  border: 2px solid #c0c7d4;
+}
+
+.actions button.secondary:hover {
+  background: #f0f2f5;
+}
+
+/* Debug raw text box */
+.debug-box {
+  margin-top: 24px;
+  background: #1a1a2e;
+  color: #a8d8a8;
+  font-family: 'Courier New', monospace;
+  font-size: 0.78rem;
+  line-height: 1.6;
+  padding: 20px;
+  border-radius: 10px;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  max-height: 400px;
+  overflow-y: auto;
+}
