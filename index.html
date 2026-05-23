@@ -34,6 +34,14 @@
 
     <div class="stop-list" id="stopList"></div>
 
+    <div class="so-strip" id="soStrip" hidden>
+      <div class="so-strip-header">
+        <span class="so-label">SO Numbers</span>
+        <button class="so-copy-btn" id="soCopyBtn">Copy</button>
+      </div>
+      <div class="so-numbers" id="soNumbers"></div>
+    </div>
+
     <div class="actions" id="actions" hidden>
       <button id="printBtn">Print Stop Cards</button>
       <button id="debugBtn" class="secondary">Show Raw PDF Text</button>
@@ -56,6 +64,9 @@
     const loaderWrap = document.getElementById('loaderWrap');
     const loaderBar  = document.getElementById('loaderBar');
     const stopList   = document.getElementById('stopList');
+    const soStrip    = document.getElementById('soStrip');
+    const soNumbers  = document.getElementById('soNumbers');
+    const soCopyBtn  = document.getElementById('soCopyBtn');
     const actions    = document.getElementById('actions');
     const printBtn   = document.getElementById('printBtn');
     const debugBtn   = document.getElementById('debugBtn');
@@ -97,6 +108,7 @@
     async function handleFile(file) {
       setStatus('', '');
       stopList.innerHTML = '';
+      soStrip.hidden     = true;
       debugBox.hidden    = true;
       actions.hidden     = true;
       parsedStops = [];
@@ -153,6 +165,7 @@
 
         setStatus(`Found ${parsedStops.length} stop${parsedStops.length !== 1 ? 's' : ''} — review below then click Print`, 'success');
         renderStops(parsedStops);
+        renderSoStrip(parsedStops);
         actions.hidden = false;
 
       } catch (err) {
@@ -176,6 +189,24 @@
         </div>`;
       }).join('');
     }
+
+    // ── SO strip ──────────────────────────────────────────────────────────────
+    function renderSoStrip(stops) {
+      // Strip letter prefix and leading zeros: "S0000045445" → "45445"
+      const nums = stops
+        .map(s => s.order ? s.order.replace(/^[A-Za-z]+0*/, '') : '')
+        .filter(Boolean);
+      if (!nums.length) return;
+      soNumbers.textContent = nums.join(', ');
+      soStrip.hidden = false;
+    }
+
+    soCopyBtn.addEventListener('click', () => {
+      navigator.clipboard.writeText(soNumbers.textContent).then(() => {
+        soCopyBtn.textContent = 'Copied!';
+        setTimeout(() => soCopyBtn.textContent = 'Copy', 1800);
+      });
+    });
 
     // ── Status ────────────────────────────────────────────────────────────────
     function setStatus(msg, type) {

@@ -185,6 +185,54 @@ header p {
   white-space: nowrap;
 }
 
+/* SO numbers strip */
+.so-strip {
+  margin-top: 16px;
+  background: #fff;
+  border-radius: 10px;
+  padding: 14px 20px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+}
+
+.so-strip-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.so-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: #999;
+}
+
+.so-numbers {
+  font-family: 'Courier New', monospace;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #1a1a2e;
+  word-break: break-all;
+  line-height: 1.5;
+}
+
+.so-copy-btn {
+  background: #4361ee;
+  color: #fff;
+  border: none;
+  padding: 5px 14px;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s;
+  flex-shrink: 0;
+}
+
+.so-copy-btn:hover { background: #3451d1; }
+
 /* Actions row */
 .actions {
   margin-top: 28px;
@@ -303,3 +351,6 @@ body.dark footer {
   color: #5a5a52;
   border-top-color: rgba(255,255,255,0.08);
 }
+
+body.dark .so-strip   { background: #272820; box-shadow: 0 1px 4px rgba(0,0,0,0.3); }
+body.dark .so-numbers { color: #f0f0e8; }
