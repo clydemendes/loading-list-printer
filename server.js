@@ -33,9 +33,9 @@ ${text}`
 
     const { loadId, stops } = JSON.parse(raw);
 
-    // Attach loadId only to stop #1
+    // Attach loadId only to the last stop
     if (stops.length > 0) {
-      stops[0].loadId = loadId || '';
+      stops[stops.length - 1].loadId = loadId || '';
     }
 
     res.json({ stops });
