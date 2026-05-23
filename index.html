@@ -140,7 +140,7 @@
           .map(l => l.replace(/\s+/g, ' ').trim())
           .filter(l => l.length > 0)
           .join('\n')
-          .slice(0, 6000); // loading lists are never this long; hard cap protects against huge files
+          .slice(0, 12000); // hard cap — loading lists are well under this; protects against huge accidental uploads
 
         const res = await fetch('/api/parse', {
           method:  'POST',
