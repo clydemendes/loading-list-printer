@@ -18,36 +18,97 @@
       <p>Upload your loading list PDF and get a print-ready card generated for each stop</p>
     </header>
 
-    <div class="drop-zone" id="dropZone">
-      <div class="drop-icon">📄</div>
-      <p>Drag &amp; drop your PDF here</p>
-      <span>or</span>
-      <label class="file-btn" for="fileInput">Choose File</label>
-      <input type="file" id="fileInput" accept=".pdf" hidden>
+    <!-- Tabs -->
+    <div class="tabs">
+      <button class="tab active" data-tab="upload">Upload PDF</button>
+      <button class="tab" data-tab="manual">Manual Entry</button>
     </div>
 
-    <div class="status" id="status"></div>
-
-    <div class="loader-wrap" id="loaderWrap" hidden>
-      <div class="loader-bar" id="loaderBar"></div>
-    </div>
-
-    <div class="stop-list" id="stopList"></div>
-
-    <div class="so-strip" id="soStrip" hidden>
-      <div class="so-strip-header">
-        <span class="so-label">SO Numbers</span>
-        <button class="so-copy-btn" id="soCopyBtn">Copy</button>
+    <!-- ── Upload PDF tab ───────────────────────────────────────────────── -->
+    <div class="tab-panel" id="tab-upload">
+      <div class="drop-zone" id="dropZone">
+        <div class="drop-icon">📄</div>
+        <p>Drag &amp; drop your PDF here</p>
+        <span>or</span>
+        <label class="file-btn" for="fileInput">Choose File</label>
+        <input type="file" id="fileInput" accept=".pdf" hidden>
       </div>
-      <div class="so-numbers" id="soNumbers"></div>
+
+      <div class="status" id="status"></div>
+
+      <div class="loader-wrap" id="loaderWrap" hidden>
+        <div class="loader-bar" id="loaderBar"></div>
+      </div>
+
+      <div class="stop-list" id="stopList"></div>
+
+      <div class="so-strip" id="soStrip" hidden>
+        <div class="so-strip-header">
+          <span class="so-label">SO Numbers</span>
+          <button class="so-copy-btn" id="soCopyBtn">Copy</button>
+        </div>
+        <div class="so-numbers" id="soNumbers"></div>
+      </div>
+
+      <div class="actions" id="actions" hidden>
+        <button id="printBtn">Print Stop Cards</button>
+        <button id="debugBtn" class="secondary">Show Raw PDF Text</button>
+      </div>
+
+      <pre class="debug-box" id="debugBox" hidden></pre>
     </div>
 
-    <div class="actions" id="actions" hidden>
-      <button id="printBtn">Print Stop Cards</button>
-      <button id="debugBtn" class="secondary">Show Raw PDF Text</button>
-    </div>
+    <!-- ── Manual Entry tab ─────────────────────────────────────────────── -->
+    <div class="tab-panel hidden" id="tab-manual">
 
-    <pre class="debug-box" id="debugBox" hidden></pre>
+      <div class="manual-form">
+        <div class="form-row">
+          <div class="form-group narrow">
+            <label>Stop #</label>
+            <input type="number" id="mStopNr" min="1" placeholder="1">
+          </div>
+          <div class="form-group narrow">
+            <label>Detail</label>
+            <input type="text" id="mDetail" placeholder="TAIL, NOSE…" maxlength="10">
+          </div>
+          <div class="form-group wide">
+            <label>Company Name <span class="required">*</span></label>
+            <input type="text" id="mCompany" placeholder="e.g. Sysco">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group wide">
+            <label>City</label>
+            <input type="text" id="mCity" placeholder="e.g. Riverside">
+          </div>
+          <div class="form-group narrow">
+            <label>State</label>
+            <input type="text" id="mState" placeholder="CA" maxlength="2">
+          </div>
+          <div class="form-group wide">
+            <label>Order Number</label>
+            <input type="text" id="mOrder" placeholder="e.g. S0000045445">
+          </div>
+        </div>
+        <button class="add-stop-btn" id="addStopBtn">+ Add Stop</button>
+        <p class="form-error" id="formError" hidden>Company name is required.</p>
+      </div>
+
+      <div class="stop-list" id="manualStopList"></div>
+
+      <div class="so-strip" id="manualSoStrip" hidden>
+        <div class="so-strip-header">
+          <span class="so-label">SO Numbers</span>
+          <button class="so-copy-btn" id="manualSoCopyBtn">Copy</button>
+        </div>
+        <div class="so-numbers" id="manualSoNumbers"></div>
+      </div>
+
+      <div class="actions" id="manualActions" hidden>
+        <button id="manualPrintBtn">Print Stop Cards</button>
+        <button id="clearAllBtn" class="secondary">Clear All</button>
+      </div>
+    </div>
 
     <footer>
       <p>All rights reserved &mdash; Made by Clyde Mendes</p>
@@ -58,20 +119,30 @@
     pdfjsLib.GlobalWorkerOptions.workerSrc =
       'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-    const dropZone   = document.getElementById('dropZone');
-    const fileInput  = document.getElementById('fileInput');
-    const status     = document.getElementById('status');
-    const loaderWrap = document.getElementById('loaderWrap');
-    const loaderBar  = document.getElementById('loaderBar');
-    const stopList   = document.getElementById('stopList');
-    const soStrip    = document.getElementById('soStrip');
-    const soNumbers  = document.getElementById('soNumbers');
-    const soCopyBtn  = document.getElementById('soCopyBtn');
-    const actions    = document.getElementById('actions');
-    const printBtn   = document.getElementById('printBtn');
-    const debugBtn   = document.getElementById('debugBtn');
-    const debugBox   = document.getElementById('debugBox');
-    const themeBtn   = document.getElementById('themeBtn');
+    // ── Elements ──────────────────────────────────────────────────────────────
+    const dropZone        = document.getElementById('dropZone');
+    const fileInput       = document.getElementById('fileInput');
+    const status          = document.getElementById('status');
+    const loaderWrap      = document.getElementById('loaderWrap');
+    const loaderBar       = document.getElementById('loaderBar');
+    const stopList        = document.getElementById('stopList');
+    const soStrip         = document.getElementById('soStrip');
+    const soNumbers       = document.getElementById('soNumbers');
+    const soCopyBtn       = document.getElementById('soCopyBtn');
+    const actions         = document.getElementById('actions');
+    const printBtn        = document.getElementById('printBtn');
+    const debugBtn        = document.getElementById('debugBtn');
+    const debugBox        = document.getElementById('debugBox');
+    const themeBtn        = document.getElementById('themeBtn');
+    const manualStopList  = document.getElementById('manualStopList');
+    const manualSoStrip   = document.getElementById('manualSoStrip');
+    const manualSoNumbers = document.getElementById('manualSoNumbers');
+    const manualSoCopyBtn = document.getElementById('manualSoCopyBtn');
+    const manualActions   = document.getElementById('manualActions');
+    const manualPrintBtn  = document.getElementById('manualPrintBtn');
+    const clearAllBtn     = document.getElementById('clearAllBtn');
+    const addStopBtn      = document.getElementById('addStopBtn');
+    const formError       = document.getElementById('formError');
 
     // ── Theme ─────────────────────────────────────────────────────────────────
     (function initTheme() {
@@ -80,17 +151,26 @@
         themeBtn.textContent = '☀️';
       }
     })();
-
     themeBtn.addEventListener('click', () => {
       const isDark = document.body.classList.toggle('dark');
       themeBtn.textContent = isDark ? '☀️' : '🌙';
       localStorage.setItem('theme', isDark ? 'dark' : 'light');
     });
 
+    // ── Tabs ──────────────────────────────────────────────────────────────────
+    document.querySelectorAll('.tab').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
+        btn.classList.add('active');
+        document.getElementById('tab-' + btn.dataset.tab).classList.remove('hidden');
+      });
+    });
+
+    // ── PDF Upload ────────────────────────────────────────────────────────────
     let parsedStops = [];
     let rawText     = '';
 
-    // ── Drag & drop ───────────────────────────────────────────────────────────
     dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
     dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
     dropZone.addEventListener('drop', e => {
@@ -104,7 +184,6 @@
       if (fileInput.files[0]) handleFile(fileInput.files[0]);
     });
 
-    // ── Main flow ─────────────────────────────────────────────────────────────
     async function handleFile(file) {
       setStatus('', '');
       stopList.innerHTML = '';
@@ -116,7 +195,6 @@
       showLoader();
 
       try {
-        // 1. Extract text from PDF in the browser
         const arrayBuffer = await file.arrayBuffer();
         const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
 
@@ -134,13 +212,12 @@
             .join('\n') + '\n';
         }
 
-        // 2. Compress text — strip blank lines & extra spaces before sending
         const compressed = rawText
           .split('\n')
           .map(l => l.replace(/\s+/g, ' ').trim())
           .filter(l => l.length > 0)
           .join('\n')
-          .slice(0, 12000); // hard cap — loading lists are well under this; protects against huge accidental uploads
+          .slice(0, 12000);
 
         const res = await fetch('/api/parse', {
           method:  'POST',
@@ -158,14 +235,14 @@
         hideLoader();
 
         if (!parsedStops.length) {
-          setStatus('Claude found no stops in this PDF. Use "Show Raw PDF Text" to verify the content.', 'error');
+          setStatus('Claude found no stops. Use "Show Raw PDF Text" to verify the content.', 'error');
           actions.hidden = false;
           return;
         }
 
         setStatus(`Found ${parsedStops.length} stop${parsedStops.length !== 1 ? 's' : ''} — review below then click Print`, 'success');
-        renderStops(parsedStops);
-        renderSoStrip(parsedStops);
+        renderStopRows(stopList, parsedStops, false);
+        renderSoStrip(soStrip, soNumbers, parsedStops);
         actions.hidden = false;
 
       } catch (err) {
@@ -175,9 +252,56 @@
       }
     }
 
-    // ── Preview list ──────────────────────────────────────────────────────────
-    function renderStops(stops) {
-      stopList.innerHTML = stops.map(s => {
+    // ── Manual Entry ──────────────────────────────────────────────────────────
+    let manualStops = [];
+
+    function nextStopNr() {
+      if (!manualStops.length) return 1;
+      return Math.max(...manualStops.map(s => parseInt(s.stopNr) || 0)) + 1;
+    }
+
+    // Pre-fill stop number
+    function refreshStopNrInput() {
+      document.getElementById('mStopNr').value = nextStopNr();
+    }
+    refreshStopNrInput();
+
+    addStopBtn.addEventListener('click', () => {
+      const company = document.getElementById('mCompany').value.trim();
+      if (!company) { formError.hidden = false; return; }
+      formError.hidden = true;
+
+      manualStops.push({
+        stopNr:  document.getElementById('mStopNr').value  || String(nextStopNr()),
+        detail:  document.getElementById('mDetail').value.trim().toUpperCase(),
+        company: company.toUpperCase(),
+        city:    document.getElementById('mCity').value.trim().toUpperCase(),
+        state:   document.getElementById('mState').value.trim().toUpperCase(),
+        order:   document.getElementById('mOrder').value.trim()
+      });
+
+      // Clear form except stop #
+      ['mDetail','mCompany','mCity','mState','mOrder'].forEach(id => document.getElementById(id).value = '');
+      refreshStopNrInput();
+      document.getElementById('mCompany').focus();
+
+      renderManualList();
+    });
+
+    // Allow Enter key to add stop
+    ['mStopNr','mDetail','mCompany','mCity','mState','mOrder'].forEach(id => {
+      document.getElementById(id).addEventListener('keydown', e => {
+        if (e.key === 'Enter') addStopBtn.click();
+      });
+    });
+
+    function removeManualStop(index) {
+      manualStops.splice(index, 1);
+      renderManualList();
+    }
+
+    function renderManualList() {
+      manualStopList.innerHTML = manualStops.map((s, i) => {
         const location = [s.city, s.state].filter(Boolean).join(', ');
         const tag      = s.detail ? `#${s.stopNr} (${s.detail})` : `#${s.stopNr}`;
         return `
@@ -186,19 +310,53 @@
           <span class="company-name">${s.company}</span>
           <span class="location">${location}</span>
           <span class="order-num">${s.order}</span>
+          <button class="remove-btn" onclick="removeManualStop(${i})">✕</button>
+        </div>`;
+      }).join('');
+
+      const hasStops = manualStops.length > 0;
+      manualActions.hidden = !hasStops;
+      renderSoStrip(manualSoStrip, manualSoNumbers, manualStops);
+      refreshStopNrInput();
+    }
+
+    clearAllBtn.addEventListener('click', () => {
+      manualStops = [];
+      renderManualList();
+    });
+
+    manualPrintBtn.addEventListener('click', () => {
+      const win = window.open('', '_blank');
+      win.document.write(generatePrintHTML(manualStops));
+      win.document.close();
+      win.focus();
+      setTimeout(() => win.print(), 500);
+    });
+
+    // ── Shared: stop rows ─────────────────────────────────────────────────────
+    function renderStopRows(container, stops, removable) {
+      container.innerHTML = stops.map((s, i) => {
+        const location = [s.city, s.state].filter(Boolean).join(', ');
+        const tag      = s.detail ? `#${s.stopNr} (${s.detail})` : `#${s.stopNr}`;
+        return `
+        <div class="stop-row">
+          <span class="tag">${tag}</span>
+          <span class="company-name">${s.company}</span>
+          <span class="location">${location}</span>
+          <span class="order-num">${s.order}</span>
+          ${removable ? `<button class="remove-btn" onclick="removeManualStop(${i})">✕</button>` : ''}
         </div>`;
       }).join('');
     }
 
-    // ── SO strip ──────────────────────────────────────────────────────────────
-    function renderSoStrip(stops) {
-      // Strip letter prefix and leading zeros: "S0000045445" → "45445"
+    // ── Shared: SO strip ──────────────────────────────────────────────────────
+    function renderSoStrip(stripEl, numsEl, stops) {
       const nums = stops
         .map(s => s.order ? s.order.replace(/^[A-Za-z]+0*/, '') : '')
         .filter(Boolean);
-      if (!nums.length) return;
-      soNumbers.textContent = nums.join(', ');
-      soStrip.hidden = false;
+      if (!nums.length) { stripEl.hidden = true; return; }
+      numsEl.textContent = nums.join(', ');
+      stripEl.hidden = false;
     }
 
     soCopyBtn.addEventListener('click', () => {
@@ -207,28 +365,31 @@
         setTimeout(() => soCopyBtn.textContent = 'Copy', 1800);
       });
     });
+    manualSoCopyBtn.addEventListener('click', () => {
+      navigator.clipboard.writeText(manualSoNumbers.textContent).then(() => {
+        manualSoCopyBtn.textContent = 'Copied!';
+        setTimeout(() => manualSoCopyBtn.textContent = 'Copy', 1800);
+      });
+    });
 
-    // ── Status ────────────────────────────────────────────────────────────────
+    // ── Status / Loader ───────────────────────────────────────────────────────
     function setStatus(msg, type) {
       status.textContent = msg;
       status.className   = 'status ' + type;
     }
-
     function showLoader() {
       loaderWrap.hidden = false;
       loaderBar.style.width = '0%';
-      // Animate to 85% quickly, then crawl — snaps to 100% on hideLoader
       setTimeout(() => loaderBar.style.width = '40%', 50);
       setTimeout(() => loaderBar.style.width = '70%', 800);
       setTimeout(() => loaderBar.style.width = '85%', 2000);
     }
-
     function hideLoader() {
       loaderBar.style.width = '100%';
       setTimeout(() => { loaderWrap.hidden = true; loaderBar.style.width = '0%'; }, 400);
     }
 
-    // ── Debug toggle ──────────────────────────────────────────────────────────
+    // ── Debug ─────────────────────────────────────────────────────────────────
     debugBtn.addEventListener('click', () => {
       if (debugBox.hidden) {
         debugBox.textContent = rawText || '(no text extracted yet)';
@@ -240,7 +401,7 @@
       }
     });
 
-    // ── Print ─────────────────────────────────────────────────────────────────
+    // ── PDF print ─────────────────────────────────────────────────────────────
     printBtn.addEventListener('click', () => {
       const win = window.open('', '_blank');
       win.document.write(generatePrintHTML(parsedStops));
@@ -249,6 +410,7 @@
       setTimeout(() => win.print(), 500);
     });
 
+    // ── Print HTML generator (shared) ─────────────────────────────────────────
     function companyFontSize(name) {
       const len = name.length;
       if (len <= 15) return '56pt';
@@ -261,7 +423,6 @@
     const COPIES = 4;
 
     function generatePrintHTML(stops) {
-      // Reverse so last stop prints first, repeat each stop COPIES times (uncollated)
       const cards = [...stops].reverse().flatMap(s => {
         const location = [s.city, s.state].filter(Boolean).join(', ');
         const header   = s.detail
@@ -302,15 +463,7 @@
     overflow: hidden;
     position: relative;
   }
-  .load-id {
-    position: absolute;
-    top: 0.25in;
-    right: 0.5in;
-    font-size: 19pt;
-    font-weight: 700;
-    color: #000;
-    letter-spacing: 1px;
-  }
+  .load-id      { position: absolute; top: 0.25in; right: 0.5in; font-size: 19pt; font-weight: 700; color: #000; letter-spacing: 1px; }
   .stop-header  { font-size: 46pt; font-weight: 900; text-transform: uppercase; letter-spacing: 3px; color: #000; margin-bottom: 0.15in; }
   .detail-tag   { color: #444; }
   .company      { font-size: 56pt; font-weight: 900; line-height: 1.0; color: #000; margin-bottom: 0.08in; }
