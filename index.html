@@ -69,7 +69,11 @@
           </div>
           <div class="form-group narrow">
             <label>Detail</label>
-            <input type="text" id="mDetail" placeholder="TAIL, NOSE…" maxlength="10">
+            <select id="mDetail">
+              <option value="">— none —</option>
+              <option value="TAIL">TAIL</option>
+              <option value="NOSE">NOSE</option>
+            </select>
           </div>
           <div class="form-group wide">
             <label>Company Name <span class="required">*</span></label>
@@ -113,6 +117,19 @@
     <footer>
       <p>All rights reserved &mdash; Made by Clyde Mendes</p>
     </footer>
+  </div>
+
+  <!-- Validation modal -->
+  <div class="modal-overlay" id="modalOverlay" hidden>
+    <div class="modal">
+      <div class="modal-icon">⚠️</div>
+      <h2 class="modal-title">Stop Order Issue</h2>
+      <p class="modal-message" id="modalMessage"></p>
+      <div class="modal-actions">
+        <button class="modal-fix-btn" id="modalFixBtn">Fix It</button>
+        <button class="modal-confirm-btn" id="modalConfirmBtn">Print Anyway</button>
+      </div>
+    </div>
   </div>
 
   <script>
@@ -253,16 +270,17 @@
     }
 
     // ── Manual Entry ──────────────────────────────────────────────────────────
-    let manualStops = [];
+    let manualStops  = [];
+    let editingIndex = -1;
 
     function nextStopNr() {
       if (!manualStops.length) return 1;
-      return Math.max(...manualStops.map(s => parseInt(s.stopNr) || 0)) + 1;
+      const used = manualStops.map(s => parseInt(s.stopNr) || 0);
+      return Math.max(...used) + 1;
     }
 
-    // Pre-fill stop number
     function refreshStopNrInput() {
-      document.getElementById('mStopNr').value = nextStopNr();
+      if (editingIndex < 0) document.getElementById('mStopNr').value = nextStopNr();
     }
     refreshStopNrInput();
 
@@ -271,32 +289,61 @@
       if (!company) { formError.hidden = false; return; }
       formError.hidden = true;
 
-      manualStops.push({
-        stopNr:  document.getElementById('mStopNr').value  || String(nextStopNr()),
-        detail:  document.getElementById('mDetail').value.trim().toUpperCase(),
+      const stop = {
+        stopNr:  String(document.getElementById('mStopNr').value || nextStopNr()),
+        detail:  document.getElementById('mDetail').value,
         company: company.toUpperCase(),
         city:    document.getElementById('mCity').value.trim().toUpperCase(),
         state:   document.getElementById('mState').value.trim().toUpperCase(),
         order:   document.getElementById('mOrder').value.trim()
-      });
+      };
 
-      // Clear form except stop #
-      ['mDetail','mCompany','mCity','mState','mOrder'].forEach(id => document.getElementById(id).value = '');
+      if (editingIndex >= 0) {
+        manualStops[editingIndex] = stop;
+        editingIndex = -1;
+        addStopBtn.textContent = '+ Add Stop';
+      } else {
+        manualStops.push(stop);
+      }
+
+      ['mCompany','mCity','mState','mOrder'].forEach(id => document.getElementById(id).value = '');
+      document.getElementById('mDetail').value = '';
       refreshStopNrInput();
       document.getElementById('mCompany').focus();
-
       renderManualList();
     });
 
-    // Allow Enter key to add stop
-    ['mStopNr','mDetail','mCompany','mCity','mState','mOrder'].forEach(id => {
+    // Enter key submits
+    ['mStopNr','mCompany','mCity','mState','mOrder'].forEach(id => {
       document.getElementById(id).addEventListener('keydown', e => {
         if (e.key === 'Enter') addStopBtn.click();
       });
     });
 
-    function removeManualStop(index) {
-      manualStops.splice(index, 1);
+    function editStop(i) {
+      const s = manualStops[i];
+      document.getElementById('mStopNr').value  = s.stopNr;
+      document.getElementById('mDetail').value   = s.detail;
+      document.getElementById('mCompany').value  = s.company;
+      document.getElementById('mCity').value     = s.city;
+      document.getElementById('mState').value    = s.state;
+      document.getElementById('mOrder').value    = s.order;
+      editingIndex = i;
+      addStopBtn.textContent = 'Save Changes';
+      formError.hidden = true;
+      document.querySelector('.manual-form').scrollIntoView({ behavior: 'smooth' });
+      document.getElementById('mCompany').focus();
+    }
+
+    function removeManualStop(i) {
+      if (editingIndex === i) {
+        editingIndex = -1;
+        addStopBtn.textContent = '+ Add Stop';
+        ['mCompany','mCity','mState','mOrder'].forEach(id => document.getElementById(id).value = '');
+        document.getElementById('mDetail').value = '';
+        refreshStopNrInput();
+      }
+      manualStops.splice(i, 1);
       renderManualList();
     }
 
@@ -304,33 +351,84 @@
       manualStopList.innerHTML = manualStops.map((s, i) => {
         const location = [s.city, s.state].filter(Boolean).join(', ');
         const tag      = s.detail ? `#${s.stopNr} (${s.detail})` : `#${s.stopNr}`;
+        const isEditing = editingIndex === i;
         return `
-        <div class="stop-row">
+        <div class="stop-row${isEditing ? ' editing' : ''}">
           <span class="tag">${tag}</span>
           <span class="company-name">${s.company}</span>
           <span class="location">${location}</span>
           <span class="order-num">${s.order}</span>
-          <button class="remove-btn" onclick="removeManualStop(${i})">✕</button>
+          <button class="edit-btn"   onclick="editStop(${i})"        title="Edit">✎</button>
+          <button class="remove-btn" onclick="removeManualStop(${i})" title="Remove">✕</button>
         </div>`;
       }).join('');
 
-      const hasStops = manualStops.length > 0;
-      manualActions.hidden = !hasStops;
+      manualActions.hidden = manualStops.length === 0;
       renderSoStrip(manualSoStrip, manualSoNumbers, manualStops);
-      refreshStopNrInput();
+      if (editingIndex < 0) refreshStopNrInput();
     }
 
     clearAllBtn.addEventListener('click', () => {
-      manualStops = [];
+      manualStops  = [];
+      editingIndex = -1;
+      addStopBtn.textContent = '+ Add Stop';
+      ['mCompany','mCity','mState','mOrder'].forEach(id => document.getElementById(id).value = '');
+      document.getElementById('mDetail').value = '';
+      refreshStopNrInput();
       renderManualList();
     });
 
-    manualPrintBtn.addEventListener('click', () => {
+    // ── Validation ────────────────────────────────────────────────────────────
+    function validateStopOrder(stops) {
+      const nums    = stops.map(s => parseInt(s.stopNr));
+      const minNr   = Math.min(...nums);
+      const maxNr   = Math.max(...nums);
+      const issues  = [];
+
+      const tailStop = stops.find(s => s.detail === 'TAIL');
+      const noseStop = stops.find(s => s.detail === 'NOSE');
+
+      if (tailStop && parseInt(tailStop.stopNr) !== minNr)
+        issues.push(`TAIL is assigned to Stop #${tailStop.stopNr}, but the first stop is #${minNr}.\nTAIL must always be the lowest-numbered stop.`);
+
+      if (noseStop && parseInt(noseStop.stopNr) !== maxNr)
+        issues.push(`NOSE is assigned to Stop #${noseStop.stopNr}, but the last stop is #${maxNr}.\nNOSE must always be the highest-numbered stop.`);
+
+      return issues;
+    }
+
+    // ── Modal ─────────────────────────────────────────────────────────────────
+    const modalOverlay   = document.getElementById('modalOverlay');
+    const modalMessage   = document.getElementById('modalMessage');
+    const modalFixBtn    = document.getElementById('modalFixBtn');
+    const modalConfirmBtn = document.getElementById('modalConfirmBtn');
+
+    function showModal(message, onConfirm) {
+      modalMessage.textContent = message;
+      modalOverlay.hidden = false;
+      modalConfirmBtn.onclick = () => { modalOverlay.hidden = true; onConfirm(); };
+      modalFixBtn.onclick     = () => { modalOverlay.hidden = true; };
+    }
+
+    modalOverlay.addEventListener('click', e => {
+      if (e.target === modalOverlay) modalOverlay.hidden = true;
+    });
+
+    function doPrint(stops) {
       const win = window.open('', '_blank');
-      win.document.write(generatePrintHTML(manualStops));
+      win.document.write(generatePrintHTML(stops));
       win.document.close();
       win.focus();
       setTimeout(() => win.print(), 500);
+    }
+
+    manualPrintBtn.addEventListener('click', () => {
+      const issues = validateStopOrder(manualStops);
+      if (issues.length) {
+        showModal(issues.join('\n\n'), () => doPrint(manualStops));
+      } else {
+        doPrint(manualStops);
+      }
     });
 
     // ── Shared: stop rows ─────────────────────────────────────────────────────
