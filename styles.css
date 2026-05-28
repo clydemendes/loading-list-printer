@@ -203,6 +203,8 @@ header p {
 .stop-row.editing { border: 2px solid #4361ee; box-shadow: 0 0 0 3px rgba(67,97,238,0.15); }
 
 /* Modal */
+.modal-overlay[hidden] { display: none; }
+
 .modal-overlay {
   position: fixed;
   inset: 0;
