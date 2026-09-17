@@ -119,6 +119,65 @@
     </footer>
   </div>
 
+  <!-- What's new modal (first 3 visits) -->
+  <div class="modal-overlay" id="whatsNewOverlay" hidden>
+    <div class="modal whatsnew-modal">
+      <div class="modal-icon">✨</div>
+      <h2 class="modal-title">What's New</h2>
+
+      <ul class="whatsnew-list">
+        <li>
+          <span class="whatsnew-bullet">✎</span>
+          <span class="whatsnew-body">
+            <strong>Edit stops after uploading</strong>
+            Every stop now has an edit button. Click it to change the stop number or set
+            TAIL / NOSE, then press Enter to save — the list re-sorts itself.
+          </span>
+        </li>
+        <li>
+          <span class="whatsnew-bullet">🔗</span>
+          <span class="whatsnew-body">
+            <strong>Same address? Combine the stops</strong>
+            When two or more stops go to the same company and city, you'll be asked whether
+            to merge them. Merged stops print as one card listing every order number, and
+            the remaining stops can be renumbered automatically.
+          </span>
+        </li>
+        <li>
+          <span class="whatsnew-bullet">✓</span>
+          <span class="whatsnew-body">
+            <strong>Print check on uploaded lists</strong>
+            Uploaded lists now get the same warning as manual entry if TAIL or NOSE is on the
+            wrong stop, or if you've used the same stop number twice.
+          </span>
+        </li>
+      </ul>
+
+      <div class="modal-actions">
+        <button class="modal-fix-btn" id="whatsNewCloseBtn">Got it</button>
+      </div>
+      <p class="whatsnew-count" id="whatsNewCount"></p>
+    </div>
+  </div>
+
+  <!-- Combine duplicate stops modal -->
+  <div class="modal-overlay" id="combineOverlay" hidden>
+    <div class="modal combine-modal">
+      <div class="modal-icon">🔗</div>
+      <h2 class="modal-title">Same Address Found</h2>
+      <p class="combine-intro" id="combineIntro"></p>
+      <div class="combine-groups" id="combineGroups"></div>
+      <label class="combine-renumber">
+        <input type="checkbox" id="renumberChk" checked>
+        <span>Renumber the remaining stops 1&ndash;N so there are no gaps</span>
+      </label>
+      <div class="modal-actions">
+        <button class="modal-fix-btn" id="combineApplyBtn">Combine Selected</button>
+        <button class="modal-confirm-btn" id="combineSkipBtn">Keep Separate</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Validation modal -->
   <div class="modal-overlay" id="modalOverlay" hidden>
     <div class="modal">
@@ -162,8 +221,17 @@
     const formError       = document.getElementById('formError');
 
     // ── Theme ─────────────────────────────────────────────────────────────────
+    // localStorage can throw when storage is blocked (private mode, locked-down
+    // browsers) — never let that take the rest of the page down with it.
+    function storageGet(key) {
+      try { return localStorage.getItem(key); } catch { return null; }
+    }
+    function storageSet(key, value) {
+      try { localStorage.setItem(key, value); } catch { /* not persisted */ }
+    }
+
     (function initTheme() {
-      if (localStorage.getItem('theme') === 'dark') {
+      if (storageGet('theme') === 'dark') {
         document.body.classList.add('dark');
         themeBtn.textContent = '☀️';
       }
@@ -171,8 +239,39 @@
     themeBtn.addEventListener('click', () => {
       const isDark = document.body.classList.toggle('dark');
       themeBtn.textContent = isDark ? '☀️' : '🌙';
-      localStorage.setItem('theme', isDark ? 'dark' : 'light');
+      storageSet('theme', isDark ? 'dark' : 'light');
     });
+
+    // ── What's new (shown on the first 3 visits) ──────────────────────────────
+    // Bump WHATS_NEW_VERSION after the next round of changes and everyone gets
+    // three fresh showings of the updated list.
+    const WHATS_NEW_VERSION = 'v2';
+    const WHATS_NEW_SHOWINGS = 3;
+
+    (function showWhatsNew() {
+      const key      = `whatsNewSeen:${WHATS_NEW_VERSION}`;
+      const overlay  = document.getElementById('whatsNewOverlay');
+      const closeBtn = document.getElementById('whatsNewCloseBtn');
+      const countEl  = document.getElementById('whatsNewCount');
+
+      const seen = parseInt(storageGet(key)) || 0;
+      if (seen >= WHATS_NEW_SHOWINGS) return;
+
+      const showing = seen + 1;
+      storageSet(key, String(showing));
+
+      countEl.textContent = showing < WHATS_NEW_SHOWINGS
+        ? `Reminder ${showing} of ${WHATS_NEW_SHOWINGS}`
+        : "Last reminder — this won't show again";
+      overlay.hidden = false;
+
+      const dismiss = () => { overlay.hidden = true; };
+      closeBtn.addEventListener('click', dismiss);
+      overlay.addEventListener('click', e => { if (e.target === overlay) dismiss(); });
+      document.addEventListener('keydown', e => {
+        if (e.key === 'Escape' && !overlay.hidden) dismiss();
+      });
+    })();
 
     // ── Tabs ──────────────────────────────────────────────────────────────────
     document.querySelectorAll('.tab').forEach(btn => {
@@ -209,6 +308,7 @@
       actions.hidden     = true;
       parsedStops = [];
       rawText     = '';
+      editingUploadIndex = -1;
       showLoader();
 
       try {
@@ -258,9 +358,9 @@
         }
 
         setStatus(`Found ${parsedStops.length} stop${parsedStops.length !== 1 ? 's' : ''} — review below then click Print`, 'success');
-        renderStopRows(stopList, parsedStops, false);
-        renderSoStrip(soStrip, soNumbers, parsedStops);
+        renderUploadList();
         actions.hidden = false;
+        maybeOfferCombine();
 
       } catch (err) {
         hideLoader();
@@ -378,12 +478,132 @@
       renderManualList();
     });
 
+    // ── Combine stops at the same address ─────────────────────────────────────
+    const combineOverlay  = document.getElementById('combineOverlay');
+    const combineIntro    = document.getElementById('combineIntro');
+    const combineGroupsEl = document.getElementById('combineGroups');
+    const combineApplyBtn = document.getElementById('combineApplyBtn');
+    const combineSkipBtn  = document.getElementById('combineSkipBtn');
+    const renumberChk     = document.getElementById('renumberChk');
+
+    // Two stops are "the same address" when company, city and state all match.
+    function addrKey(s) {
+      const norm = v => String(v ?? '').trim().toUpperCase().replace(/\s+/g, ' ');
+      return [norm(s.company), norm(s.city), norm(s.state)].join('|');
+    }
+
+    function findDuplicateGroups(stops) {
+      const map = new Map();
+      stops.forEach((s, i) => {
+        if (!String(s.company ?? '').trim()) return;   // no company = nothing to match on
+        const key = addrKey(s);
+        if (!map.has(key)) map.set(key, []);
+        map.get(key).push(i);
+      });
+      return [...map.values()]
+        .filter(g => g.length >= 2)
+        .map(g => [...g].sort((a, b) => byStopNr(stops[a], stops[b])));
+    }
+
+    let pendingGroups = [];
+
+    function maybeOfferCombine() {
+      pendingGroups = findDuplicateGroups(parsedStops);
+      if (!pendingGroups.length) return;
+
+      const total = pendingGroups.reduce((n, g) => n + g.length, 0);
+      combineIntro.textContent =
+        `${total} stops share ${pendingGroups.length} address${pendingGroups.length !== 1 ? 'es' : ''}. ` +
+        `Combining merges each set into one stop card that lists every order number.`;
+
+      combineGroupsEl.innerHTML = pendingGroups.map((g, gi) => {
+        const first    = parsedStops[g[0]];
+        const location = [first.city, first.state].filter(Boolean).join(', ');
+        const nrs      = g.map(i => '#' + parsedStops[i].stopNr).join(', ');
+        const orders   = g.flatMap(i => stopOrders(parsedStops[i]));
+        return `
+        <label class="combine-group">
+          <input type="checkbox" class="combine-chk" data-g="${gi}" checked>
+          <span class="combine-group-body">
+            <span class="combine-company">${esc(first.company)}</span>
+            ${location ? `<span class="combine-location">${esc(location)}</span>` : ''}
+            <span class="combine-detail">${esc(nrs)} &rarr; <strong>#${esc(parsedStops[g[0]].stopNr)}</strong>${
+              orders.length ? ` &middot; ${orders.length} order${orders.length !== 1 ? 's' : ''}` : ''}</span>
+          </span>
+        </label>`;
+      }).join('');
+
+      combineOverlay.hidden = false;
+    }
+
+    function combineSelected(groups, renumber) {
+      const drop = new Set();
+
+      groups.forEach(g => {
+        const keep   = parsedStops[g[0]];          // groups arrive sorted by stop number
+        const orders = [];
+        let detail = keep.detail || '';
+
+        g.forEach(i => {
+          stopOrders(parsedStops[i]).forEach(o => { if (!orders.includes(o)) orders.push(o); });
+          if (!detail && parsedStops[i].detail) detail = parsedStops[i].detail;
+        });
+
+        keep.orders     = orders;
+        keep.order      = orders[0] || '';
+        keep.detail     = detail;
+        keep.mergedFrom = g.map(i => parsedStops[i].stopNr);
+        g.slice(1).forEach(i => drop.add(i));
+      });
+
+      // The load ID rides on the last stop — hold it aside so a merge can't strand it.
+      const loadId = parsedStops.find(s => s.loadId)?.loadId || '';
+      parsedStops.forEach(s => delete s.loadId);
+
+      parsedStops = parsedStops.filter((_, i) => !drop.has(i));
+      parsedStops.sort(byStopNr);
+      if (renumber) parsedStops.forEach((s, i) => s.stopNr = String(i + 1));
+      if (loadId && parsedStops.length) parsedStops[parsedStops.length - 1].loadId = loadId;
+    }
+
+    combineApplyBtn.addEventListener('click', () => {
+      const chosen = [...combineGroupsEl.querySelectorAll('.combine-chk')]
+        .filter(c => c.checked)
+        .map(c => pendingGroups[parseInt(c.dataset.g)]);
+
+      combineOverlay.hidden = true;
+      if (!chosen.length) return;
+
+      const before = parsedStops.length;
+      combineSelected(chosen, renumberChk.checked);
+      editingUploadIndex = -1;   // row indexes just shifted
+      renderUploadList();
+      setStatus(
+        `Combined ${before - parsedStops.length + chosen.length} stops into ${chosen.length} — ` +
+        `${parsedStops.length} stop${parsedStops.length !== 1 ? 's' : ''} total`,
+        'success'
+      );
+    });
+
+    combineSkipBtn.addEventListener('click', () => { combineOverlay.hidden = true; });
+    combineOverlay.addEventListener('click', e => {
+      if (e.target === combineOverlay) combineOverlay.hidden = true;
+    });
+
     // ── Validation ────────────────────────────────────────────────────────────
     function validateStopOrder(stops) {
-      const nums    = stops.map(s => parseInt(s.stopNr));
+      const nums    = stops.map(s => parseInt(s.stopNr)).filter(Number.isFinite);
+      if (!nums.length) return [];
       const minNr   = Math.min(...nums);
       const maxNr   = Math.max(...nums);
       const issues  = [];
+
+      const counts = {};
+      stops.forEach(s => { counts[s.stopNr] = (counts[s.stopNr] || 0) + 1; });
+      const dupes = Object.keys(counts).filter(k => counts[k] > 1);
+      if (dupes.length)
+        issues.push(`Stop #${dupes.join(', #')} ${dupes.length > 1 ? 'are' : 'is'} used more than once.\nEvery stop needs its own number.`);
+
 
       const tailStop = stops.find(s => s.detail === 'TAIL');
       const noseStop = stops.find(s => s.detail === 'NOSE');
@@ -431,26 +651,124 @@
       }
     });
 
-    // ── Shared: stop rows ─────────────────────────────────────────────────────
-    function renderStopRows(container, stops, removable) {
-      container.innerHTML = stops.map((s, i) => {
+    // ── Shared: stop helpers ──────────────────────────────────────────────────
+    function esc(v) {
+      return String(v ?? '').replace(/[&<>"']/g, c =>
+        ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+    }
+
+    // A stop carries either a single `order` or, once combined, an `orders` array.
+    function stopOrders(s) {
+      if (Array.isArray(s.orders) && s.orders.length) return s.orders.filter(Boolean);
+      return s.order ? [s.order] : [];
+    }
+
+    function stopNum(s) {
+      const n = parseInt(s.stopNr);
+      return Number.isFinite(n) ? n : Number.MAX_SAFE_INTEGER;
+    }
+
+    function byStopNr(a, b) { return stopNum(a) - stopNum(b); }
+
+    // ── Upload tab: editable stop rows ────────────────────────────────────────
+    const DETAIL_OPTIONS = ['TAIL', 'NOSE'];
+
+    function detailSelect(s, i) {
+      const opts = DETAIL_OPTIONS.slice();
+      if (s.detail && !opts.includes(s.detail)) opts.unshift(s.detail);
+      return `<select class="detail-select" data-i="${i}" aria-label="Stop detail">
+        <option value=""${!s.detail ? ' selected' : ''}>—</option>
+        ${opts.map(o => `<option value="${esc(o)}"${s.detail === o ? ' selected' : ''}>${esc(o)}</option>`).join('')}
+      </select>`;
+    }
+
+    // Index of the row currently open for editing, or -1 when none is.
+    let editingUploadIndex = -1;
+
+    function renderUploadList() {
+      stopList.innerHTML = parsedStops.map((s, i) => {
         const location = [s.city, s.state].filter(Boolean).join(', ');
-        const tag      = s.detail ? `#${s.stopNr} (${s.detail})` : `#${s.stopNr}`;
+        const orders   = stopOrders(s);
+        const merged   = s.mergedFrom && s.mergedFrom.length > 1
+          ? `<span class="merged-badge" title="Combined from stops #${esc(s.mergedFrom.join(', #'))}">merged ×${orders.length || s.mergedFrom.length}</span>`
+          : '';
+        const body = `
+          <span class="company-name">${esc(s.company)}${merged}</span>
+          <span class="location">${esc(location)}</span>
+          <span class="order-num">${orders.map(esc).join('<br>')}</span>`;
+
+        if (i === editingUploadIndex) {
+          return `
+          <div class="stop-row row-editing editing">
+            <span class="tag tag-edit">
+              <span class="hash">#</span>
+              <input type="number" class="stop-nr-input" min="1" step="1"
+                     value="${esc(s.stopNr)}" aria-label="Stop number">
+            </span>
+            ${detailSelect(s, i)}
+            ${body}
+            <button class="save-btn"   data-i="${i}" title="Save">✓</button>
+            <button class="cancel-btn" data-i="${i}" title="Cancel">✕</button>
+          </div>`;
+        }
+
+        const tag = s.detail ? `#${esc(s.stopNr)} (${esc(s.detail)})` : `#${esc(s.stopNr)}`;
         return `
-        <div class="stop-row">
+        <div class="stop-row upload-row">
           <span class="tag">${tag}</span>
-          <span class="company-name">${s.company}</span>
-          <span class="location">${location}</span>
-          <span class="order-num">${s.order}</span>
-          ${removable ? `<button class="remove-btn" onclick="removeManualStop(${i})">✕</button>` : ''}
+          ${body}
+          <button class="edit-btn" data-i="${i}" title="Edit stop number">✎</button>
         </div>`;
       }).join('');
+
+      renderSoStrip(soStrip, soNumbers, parsedStops);
+
+      const input = stopList.querySelector('.stop-nr-input');
+      if (input) { input.focus(); input.select(); }
     }
+
+    function saveUploadRow(i) {
+      const row = stopList.querySelector('.row-editing');
+      if (!row || !parsedStops[i]) return;
+
+      const v = parseInt(row.querySelector('.stop-nr-input').value);
+      if (Number.isFinite(v) && v >= 1) parsedStops[i].stopNr = String(v);  // ignore blank / zero / negative
+      parsedStops[i].detail = row.querySelector('.detail-select').value;
+
+      editingUploadIndex = -1;
+      parsedStops.sort(byStopNr);   // keep the list in the order the cards will print
+      renderUploadList();
+    }
+
+    stopList.addEventListener('click', e => {
+      const btn = e.target.closest('.edit-btn, .save-btn, .cancel-btn');
+      if (!btn) return;
+      const i = parseInt(btn.dataset.i);
+      if (!Number.isFinite(i)) return;
+
+      if (btn.classList.contains('edit-btn')) {
+        editingUploadIndex = i;
+        renderUploadList();
+      } else if (btn.classList.contains('save-btn')) {
+        saveUploadRow(i);
+      } else {
+        editingUploadIndex = -1;
+        renderUploadList();
+      }
+    });
+
+    // Enter saves the open row, Escape abandons it.
+    stopList.addEventListener('keydown', e => {
+      if (editingUploadIndex < 0) return;
+      if (e.key === 'Enter')  { e.preventDefault(); saveUploadRow(editingUploadIndex); }
+      if (e.key === 'Escape') { editingUploadIndex = -1; renderUploadList(); }
+    });
 
     // ── Shared: SO strip ──────────────────────────────────────────────────────
     function renderSoStrip(stripEl, numsEl, stops) {
       const nums = stops
-        .map(s => s.order ? s.order.replace(/^[A-Za-z]+0*/, '') : '')
+        .flatMap(stopOrders)
+        .map(o => o.replace(/^[A-Za-z]+0*/, ''))
         .filter(Boolean);
       if (!nums.length) { stripEl.hidden = true; return; }
       numsEl.textContent = nums.join(', ');
@@ -501,11 +819,12 @@
 
     // ── PDF print ─────────────────────────────────────────────────────────────
     printBtn.addEventListener('click', () => {
-      const win = window.open('', '_blank');
-      win.document.write(generatePrintHTML(parsedStops));
-      win.document.close();
-      win.focus();
-      setTimeout(() => win.print(), 500);
+      const issues = validateStopOrder(parsedStops);
+      if (issues.length) {
+        showModal(issues.join('\n\n'), () => doPrint(parsedStops));
+      } else {
+        doPrint(parsedStops);
+      }
     });
 
     // ── Print HTML generator (shared) ─────────────────────────────────────────
@@ -518,14 +837,29 @@
       return '24pt';
     }
 
+    function orderFontSize(count) {
+      if (count <= 1) return '46pt';
+      if (count === 2) return '36pt';
+      if (count === 3) return '28pt';
+      return '22pt';
+    }
+
     const COPIES = 4;
 
     function generatePrintHTML(stops) {
-      const cards = [...stops].reverse().flatMap(s => {
+      // Sort by stop number, then reverse so the last stop comes off the printer first
+      const cards = [...stops].sort(byStopNr).reverse().flatMap(s => {
         const location = [s.city, s.state].filter(Boolean).join(', ');
         const header   = s.detail
           ? `STOP #${s.stopNr} <span class="detail-tag">(${s.detail})</span>`
           : `STOP #${s.stopNr}`;
+        const orders   = stopOrders(s);
+        const orderBlock = orders.length
+          ? `<div class="order-label">Order Number${orders.length > 1 ? 's' : ''}</div>
+          <div class="order-list">${orders.map(o =>
+            `<div class="order-number" style="font-size:${orderFontSize(orders.length)}">${o}</div>`).join('')}</div>`
+          : `<div class="order-label">Order Number</div>
+          <div class="order-number no-order">—</div>`;
         const card = `
         <div class="stop-card">
           ${s.loadId ? `<div class="load-id">${s.loadId}</div>` : ''}
@@ -533,8 +867,7 @@
           <div class="company" style="font-size:${companyFontSize(s.company)}">${s.company}</div>
           ${location ? `<div class="location">${location}</div>` : ''}
           <hr class="divider">
-          <div class="order-label">Order Number</div>
-          ${s.order ? `<div class="order-number">${s.order}</div>` : '<div class="order-number no-order">—</div>'}
+          ${orderBlock}
         </div>`;
         return Array(COPIES).fill(card);
       }).join('');
@@ -568,8 +901,9 @@
   .location     { font-size: 30pt; font-weight: 700; color: #000; margin-bottom: 0.2in; }
   .divider      { border: none; border-top: 2px solid #000; margin-bottom: 0.15in; }
   .order-label  { font-size: 10pt; font-weight: 700; text-transform: uppercase; letter-spacing: 3px; color: #000; margin-bottom: 0.06in; }
-  .order-number { font-size: 46pt; font-weight: 900; color: #000; letter-spacing: 2px; }
+  .order-number { font-size: 46pt; font-weight: 900; color: #000; letter-spacing: 2px; line-height: 1.1; }
   .order-number.no-order { color: #999; }
+  .order-list .order-number + .order-number { margin-top: 0.04in; }
 </style>
 </head>
 <body>${cards}</body>

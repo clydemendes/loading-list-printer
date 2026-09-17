@@ -7,15 +7,41 @@ function companyFontSize(name) {
   return '24pt';
 }
 
+function orderFontSize(count) {
+  if (count <= 1) return '46pt';
+  if (count === 2) return '36pt';
+  if (count === 3) return '28pt';
+  return '22pt';
+}
+
+// A stop carries either a single `order` or, once combined, an `orders` array.
+function stopOrders(s) {
+  if (Array.isArray(s.orders) && s.orders.length) return s.orders.filter(Boolean);
+  return s.order ? [s.order] : [];
+}
+
+function stopNum(s) {
+  const n = parseInt(s.stopNr);
+  return Number.isFinite(n) ? n : Number.MAX_SAFE_INTEGER;
+}
+
 const COPIES = 4;
 
 function generatePrintHTML(stops) {
-  // Reverse so last stop prints first, repeat each stop COPIES times (uncollated)
-  const cards = [...stops].reverse().flatMap(s => {
+  // Sort by stop number, then reverse so last stop prints first,
+  // repeating each stop COPIES times (uncollated)
+  const cards = [...stops].sort((a, b) => stopNum(a) - stopNum(b)).reverse().flatMap(s => {
     const location = [s.city, s.state].filter(Boolean).join(', ');
     const header   = s.detail
       ? `STOP #${s.stopNr} <span class="detail-tag">(${s.detail})</span>`
       : `STOP #${s.stopNr}`;
+    const orders   = stopOrders(s);
+    const orderBlock = orders.length
+      ? `<div class="order-label">Order Number${orders.length > 1 ? 's' : ''}</div>
+      <div class="order-list">${orders.map(o =>
+        `<div class="order-number" style="font-size:${orderFontSize(orders.length)}">${o}</div>`).join('')}</div>`
+      : `<div class="order-label">Order Number</div>
+      <div class="order-number no-order">—</div>`;
     const card = `
     <div class="stop-card">
       ${s.loadId ? `<div class="load-id">${s.loadId}</div>` : ''}
@@ -23,8 +49,7 @@ function generatePrintHTML(stops) {
       <div class="company" style="font-size:${companyFontSize(s.company)}">${s.company}</div>
       ${location ? `<div class="location">${location}</div>` : ''}
       <hr class="divider">
-      <div class="order-label">Order Number</div>
-      ${s.order ? `<div class="order-number">${s.order}</div>` : '<div class="order-number no-order">—</div>'}
+      ${orderBlock}
     </div>`;
     return Array(COPIES).fill(card);
   }).join('');
@@ -108,8 +133,10 @@ function generatePrintHTML(stops) {
     font-weight: 900;
     color: #000;
     letter-spacing: 2px;
+    line-height: 1.1;
   }
   .order-number.no-order { color: #999; }
+  .order-list .order-number + .order-number { margin-top: 0.04in; }
 </style>
 </head>
 <body>${cards}</body>
