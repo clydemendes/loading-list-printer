@@ -62,6 +62,17 @@
     <div class="tab-panel hidden" id="tab-manual">
 
       <div class="manual-form">
+        <div class="load-row">
+          <div class="form-group narrow">
+            <label>Load #</label>
+            <input type="text" id="mLoadId" placeholder="e.g. 445513">
+          </div>
+          <p class="load-hint">
+            One number for the whole load. It prints in the corner of the last stop's
+            cards &mdash; the first sheets to come off the printer.
+          </p>
+        </div>
+
         <div class="form-row">
           <div class="form-group narrow">
             <label>Stop #</label>
@@ -472,7 +483,7 @@
       manualStops  = [];
       editingIndex = -1;
       addStopBtn.textContent = '+ Add Stop';
-      ['mCompany','mCity','mState','mOrder'].forEach(id => document.getElementById(id).value = '');
+      ['mCompany','mCity','mState','mOrder','mLoadId'].forEach(id => document.getElementById(id).value = '');
       document.getElementById('mDetail').value = '';
       refreshStopNrInput();
       renderManualList();
@@ -642,12 +653,25 @@
       setTimeout(() => win.print(), 500);
     }
 
+    // The load number belongs to the whole load, and prints on the last stop only
+    // (same as an uploaded PDF). Applied to a copy so the working list is untouched.
+    function withLoadId(stops, loadId) {
+      const out = stops.map(s => ({ ...s }));
+      out.forEach(s => delete s.loadId);
+      if (loadId && out.length) {
+        out.sort(byStopNr);
+        out[out.length - 1].loadId = loadId;
+      }
+      return out;
+    }
+
     manualPrintBtn.addEventListener('click', () => {
+      const stops  = withLoadId(manualStops, document.getElementById('mLoadId').value.trim());
       const issues = validateStopOrder(manualStops);
       if (issues.length) {
-        showModal(issues.join('\n\n'), () => doPrint(manualStops));
+        showModal(issues.join('\n\n'), () => doPrint(stops));
       } else {
-        doPrint(manualStops);
+        doPrint(stops);
       }
     });
 
